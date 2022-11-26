@@ -1,0 +1,30 @@
+version: '3'
+
+services:
+  postgres:
+      image: postgres
+      restart: unless-stopped
+      volumes:
+        - ./keycloak-postgres_data:/var/lib/postgresql/data
+      environment:
+        POSTGRES_DB: keycloak
+        POSTGRES_USER: keycloak
+        POSTGRES_PASSWORD: <keycloak_database_password>
+  keycloak:
+      image: quay.io/keycloak/keycloak
+      restart: unless-stopped
+      environment:
+        KC_HOSTNAME: <keycloak_hostname>
+        KC_DB: postgres
+        KC_DB_PASSWORD: <keycloak_database_password>
+        KC_DB_URL: jdbc:postgresql://postgres/keycloak
+        KC_DB_USERNAME: keycloak
+        KEYCLOAK_ADMIN: admin
+        KEYCLOAK_ADMIN_PASSWORD: <keycloak_admin_password>
+      volumes:
+        - ./keycloakImports:/opt/keycloak/data/import
+      ports:
+        - 0.0.0.0:8080:8080
+      depends_on:
+        - postgres
+      command: start-dev --import-realm  # this should be changed in production
