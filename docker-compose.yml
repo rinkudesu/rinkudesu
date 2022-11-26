@@ -1,0 +1,105 @@
+version: '3'
+
+services:
+  postgres-tags:
+    image: postgres:alpine
+    restart: unless-stopped
+    networks:
+      - tags
+    environment:
+      POSTGRES_USER: rinkudesu
+      POSTGRES_PASSWORD: your_very_safe_password_here
+      POSTGRES_DB: rinkudesu
+    volumes:
+      - ./tags-postgres:/var/lib/postgresql/data
+  rinkudesu-tags:
+    image: ghcr.io/rinkudesu/rinkudesu-tags:latest
+    restart: unless-stopped
+    depends_on:
+      - postgres-tags
+      - kafka
+    environment:
+      TAGS_DB: "postgres://rinkudesu:your_very_safe_password_here@postgres-tags:5432/rinkudesu"
+      TAGS_LOG-LEVEL: "info"
+      GIN_MODE: "release"
+      TAGS_AUTHORITY: "https://<your_keycloak_hostname>/realms/rinkudesu"
+      RINKU_KAFKA_ADDRESS: "kafka:9092"
+      RINKU_KAFKA_CLIENT_ID: "rinkudesu-tags"
+      RINKU_KAFKA_CONSUMER_GROUP_ID: "rinkudesu-tags"
+    networks:
+      - internal
+      - tags
+
+  postgres-links:
+    image: postgres:latest
+    restart: unless-stopped
+    networks:
+      - links
+    environment:
+      POSTGRES_PASSWORD: your_very_safe_password_here
+    volumes:
+      - ./links-postgres:/var/lib/postgresql/data
+  rinkudesu-links:
+      image: ghcr.io/rinkudesu/rinkudesu-links:latest
+      depends_on:
+        - postgres-links
+        - kafka
+      networks:
+        - links
+        - internal
+      environment:
+        RINKU_LINKS_CONNECTIONSTRING: "Server=postgres-links;Port=5432;Database=rinku-links;User Id=postgres;Password=your_very_safe_password_here;"
+        RINKUDESU_AUTHORITY: "https://<your_keycloak_hostname>/realms/rinkudesu"
+        RINKU_KAFKA_ADDRESS: "kafka:9092"
+        RINKU_KAFKA_CLIENT_ID: "rinkudesu-links"
+        RINKU_KAFKA_CONSUMER_GROUP_ID: "rinkudesu-links"
+      command:
+        - "--applyMigrations"
+
+  rinkudesu-webui:
+    image: ghcr.io/rinkudesu/rinkudesu-webui:latest
+    depends_on: 
+      - kafka
+    networks: 
+      - internal
+    ports:
+      - "127.0.0.1:80:80"
+    environment:
+      RINKUDESU_AUTHORITY: "http://<yout_keycloak_hostname>/realms/rinkudesu"
+      RINKUDESU_CLIENTID: "rinkudesu"
+      RINKUDESU_LINKS: "http://rinkudesu-links/api/"
+      RINKU_KAFKA_ADDRESS: "kafka:9092"
+      RINKU_KAFKA_CLIENT_ID: "rinkudesu-webui"
+      RINKU_KAFKA_CONSUMER_GROUP_ID: "rinkudesu-webui"
+      
+  zookeeper:
+    image: docker.io/bitnami/zookeeper:latest
+    restart: unless-stopped
+    networks: 
+      - kafka
+    volumes:
+      - "./zookeeper_data:/bitnami"
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+      - KAFKA_TLS_CLIENT_AUTH=none
+  kafka:
+    image: docker.io/bitnami/kafka:latest
+    restart: unless-stopped
+    networks: 
+      - kafka
+      - internal
+    volumes:
+      - "./kafka_data:/bitnami"
+    environment:
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+    depends_on:
+      - zookeeper
+
+networks:
+  tags:
+  links:
+  internal:
+  kafka:
