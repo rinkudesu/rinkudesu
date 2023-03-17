@@ -67,7 +67,8 @@
           "client": {
             "account": [
               "manage-account",
-              "view-profile"
+              "view-profile",
+              "delete-account"
             ]
           }
         },
@@ -2149,7 +2150,7 @@
       "alias": "delete_account",
       "name": "Delete Account",
       "providerId": "delete_account",
-      "enabled": false,
+      "enabled": true,
       "defaultAction": false,
       "priority": 60,
       "config": {}

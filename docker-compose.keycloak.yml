@@ -10,9 +10,14 @@ services:
         POSTGRES_DB: keycloak
         POSTGRES_USER: keycloak
         POSTGRES_PASSWORD: <keycloak_database_password>
+      networks:
+        - backend
   keycloak:
       image: quay.io/keycloak/keycloak
       restart: unless-stopped
+      networks:
+        - backend
+        - kafka
       environment:
         KC_HOSTNAME: <keycloak_hostname>
         KC_DB: postgres
@@ -21,10 +26,19 @@ services:
         KC_DB_USERNAME: keycloak
         KEYCLOAK_ADMIN: admin
         KEYCLOAK_ADMIN_PASSWORD: <keycloak_admin_password>
+        RINKU_KAFKA_ADDRESS: kafka:9092
+        RINKU_KAFKA_TOPIC: users-delete
+        RINKU_KAFKA_CLIENT_ID: keycloak
       volumes:
         - ./keycloakImports:/opt/keycloak/data/import
+        - ./providers:/opt/keycloak/providers
       ports:
-        - 0.0.0.0:8080:8080
+        - 127.0.0.1:8080:8080
       depends_on:
         - postgres
-      command: start-dev --import-realm  # this should be changed in production
+      command: start-dev --import-realm --spi-event-listener-user-deleted-event-listener-enabled=true --spi-event-listener-user-deleted-event-listener=user-deleted-event-listener  # this should be changed in production
+
+networks:
+  kafka:
+    external: true
+  backend:
